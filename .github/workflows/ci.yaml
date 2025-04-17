@@ -54,9 +54,13 @@ jobs:
       - name: Deploy to eval environment
         run: |
           API_NAME="${{ steps.get_api_name.outputs.api_name }}"
-          REVISION=$(gcloud apigee apis describe "$API_NAME" --project=primal-gate-456620-t1 --format="value(revision[-1])")
-          gcloud apigee deployments create \
+          REVISION=$(gcloud apigee api-proxies describe "$API_NAME" \
+            --project=primal-gate-456620-t1 \
+            --format="value(revisions[-1])")
+
+          gcloud apigee api-proxies deploy \
             --api="$API_NAME" \
             --environment=eval \
             --revision="$REVISION" \
             --project=primal-gate-456620-t1
+
