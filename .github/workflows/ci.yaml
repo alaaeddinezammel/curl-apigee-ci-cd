@@ -27,32 +27,39 @@ jobs:
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
 
+      - name: Get API name from XML
+        id: get_api_name
+        run: |
+          # Extraction du nom de l'API depuis le fichier XML
+          API_NAME=$(grep -oP '(?<=<name>)(.*)(?=</name>)' ./curl-apigee-ci-cd/apiproxy/hello-world.xml)
+          echo "API_NAME=$API_NAME" >> $GITHUB_ENV
+
       - name: Check if API exists
         id: check_api
         run: |
-          API_EXISTS=$(gcloud apigee apis describe my-proxy --project=primal-gate-456620-t1 --format="value(name)" || echo "not-found")
+          API_EXISTS=$(gcloud apigee apis describe $API_NAME --project=primal-gate-456620-t1 --format="value(name)" || echo "not-found")
           echo "API_EXISTS=$API_EXISTS" >> $GITHUB_ENV
 
       - name: Create Apigee API Proxy if not exists
         if: env.API_EXISTS == 'not-found'
         run: |
-          gcloud apigee apis create \
-            --api=my-proxy \
-            --source=./proxies/my-proxy.zip \
+          gcloud apigee apis import \
+            --api=$API_NAME \
+            --source=./curl-apigee-ci-cd/apiproxy \
             --project=primal-gate-456620-t1
 
       - name: Deploy Apigee Proxy
         if: env.API_EXISTS != 'not-found'
         run: |
           gcloud apigee apis deploy \
-            --api=my-proxy \
-            --source=./proxies/my-proxy.zip \
+            --api=$API_NAME \
+            --source=./curl-apigee-ci-cd/apiproxy \
             --project=primal-gate-456620-t1
 
       - name: Deploy to eval environment
         run: |
           gcloud apigee deployments create \
-            --api=my-proxy \
+            --api=$API_NAME \
             --environment=eval \
             --revision=1 \
             --project=primal-gate-456620-t1
