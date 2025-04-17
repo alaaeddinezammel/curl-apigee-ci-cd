@@ -38,9 +38,7 @@ jobs:
 
       - name: Zip Apigee proxy bundle
         run: |
-          cd apiproxy
-          zip -r ../proxy.zip .
-          cd ..
+          zip -r proxy.zip apiproxy
 
       - name: Check if API exists
         id: check_api
