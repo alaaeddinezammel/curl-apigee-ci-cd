@@ -74,18 +74,28 @@ jobs:
             -d '{"name":"'"$API_NAME"'"}' \
             "https://apigee.googleapis.com/v1/organizations/$ORG/apis?name=$API_NAME"
 
-      - name: Import proxy revision
-        id: import_proxy
+      - name: Import proxy to Apigee
         run: |
           API_NAME="${{ steps.get_api_name.outputs.api_name }}"
           ORG="primal-gate-456620-t1"
-          TOKEN="${{ steps.auth.outputs.access_token }}"
+          TOKEN="$(gcloud auth print-access-token)"
           
+          echo "Zipping apiproxy folder..."
+          cd apiproxy
+          zip -r ../proxy.zip .
+          cd ..
+          
+          echo "Sending import request..."
           RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: multipart/form-data" \
             -F "file=@proxy.zip" \
             "https://apigee.googleapis.com/v1/organizations/$ORG/apis/$API_NAME/revisions?validate=true")
+          
+          echo "API Response: $RESPONSE"
+          
+          # Optional: exit if response contains an error
+          echo "$RESPONSE" | grep -q '"error"' && exit 1
           
           REVISION=$(echo "$RESPONSE" | grep -oP '"revision"\s*:\s*"\K[0-9]+')
           echo "REVISION=$REVISION"
