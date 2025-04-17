@@ -55,17 +55,18 @@ jobs:
         run: |
           API_NAME="${{ steps.get_api_name.outputs.api_name }}"
 
-          # Récupérer la dernière révision disponible
+          # Récupération de la dernière révision
           REVISION=$(gcloud apigee apis describe "$API_NAME" \
             --project=primal-gate-456620-t1 \
             --format="value(revision[-1])")
 
-          echo "Deploying API: $API_NAME (revision $REVISION)"
+          echo "Deploying $API_NAME revision $REVISION to eval..."
 
-          gcloud apigee apis deploy \
+          gcloud apigee deployments replace \
             --api="$API_NAME" \
             --environment=eval \
             --revision="$REVISION" \
             --project=primal-gate-456620-t1
+
 
 
