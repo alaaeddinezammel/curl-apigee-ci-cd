@@ -27,14 +27,12 @@ jobs:
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Get API name from XML
+      - name: Extract API name from XML
         id: get_api_name
         run: |
-          sudo apt-get update && sudo apt-get install -y libxml2-utils
-          API_NAME=$(xmllint --xpath 'string(//name)' ./apiproxy/hello-world.xml)
+          API_NAME=$(sed -n 's/.*<APIProxy[^>]*name="\([^"]*\)".*/\1/p' ./apiproxy/hello-world.xml)
           echo "API_NAME=$API_NAME"
           echo "api_name=$API_NAME" >> $GITHUB_OUTPUT
-
 
       - name: Check if API exists
         id: check_api
