@@ -34,9 +34,17 @@ jobs:
           API_NAME=$(grep -oP '(?<=<name>)(.*)(?=</name>)' ./apiproxy/hello-world.xml)
           echo "API_NAME=$API_NAME" >> $GITHUB_ENV
 
+      - name: Check extracted API name
+        run: |
+          echo "API Name Extracted: $API_NAME"
+
       - name: Check if API exists
         id: check_api
         run: |
+          if [ -z "$API_NAME" ]; then
+            echo "Error: API name is empty"
+            exit 1
+          fi
           API_EXISTS=$(gcloud apigee apis describe $API_NAME --project=primal-gate-456620-t1 --format="value(name)" || echo "not-found")
           echo "API_EXISTS=$API_EXISTS" >> $GITHUB_ENV
 
