@@ -27,9 +27,9 @@ jobs:
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Import Apigee Proxy
+      - name: Create Apigee API Proxy
         run: |
-          gcloud apigee apis import \
+          gcloud apigee apis create \
             --api=my-proxy \
             --source=./proxies/my-proxy.zip \
             --project=primal-gate-456620-t1
