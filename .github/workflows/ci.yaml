@@ -54,19 +54,14 @@ jobs:
       - name: Deploy to eval environment
         run: |
           API_NAME="${{ steps.get_api_name.outputs.api_name }}"
+          echo "Deploying $API_NAME to eval environment..."
 
-          # Récupération de la dernière révision
-          REVISION=$(gcloud apigee apis describe "$API_NAME" \
-            --project=primal-gate-456620-t1 \
-            --format="value(revision[-1])")
-
-          echo "Deploying $API_NAME revision $REVISION to eval..."
-
-          gcloud apigee deployments replace \
+          gcloud apigee apis deploy \
             --api="$API_NAME" \
             --environment=eval \
-            --revision="$REVISION" \
+            --source=./apiproxy \
             --project=primal-gate-456620-t1
+
 
 
 
