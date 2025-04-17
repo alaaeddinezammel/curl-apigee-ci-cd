@@ -17,7 +17,8 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Auth to Google Cloud with Workload Identity Federation
+      - name: Auth to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           token_format: 'access_token'
@@ -27,41 +28,76 @@ jobs:
       - name: Setup gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Extract API name from XML
+      - name: Get API name from XML
         id: get_api_name
         run: |
-          API_NAME=$(sed -n 's/.*<APIProxy[^>]*name="\([^"]*\)".*/\1/p' ./apiproxy/hello-world.xml)
+          sudo apt-get update && sudo apt-get install -y libxml2-utils zip
+          API_NAME=$(xmllint --xpath 'string(//APIProxy/@name)' ./apiproxy/hello-world.xml)
           echo "API_NAME=$API_NAME"
           echo "api_name=$API_NAME" >> $GITHUB_OUTPUT
+
+      - name: Zip Apigee proxy bundle
+        run: |
+          cd ./apiproxy
+          zip -r ../proxy.zip .
+          cd ..
 
       - name: Check if API exists
         id: check_api
         run: |
           API_NAME="${{ steps.get_api_name.outputs.api_name }}"
-          API_EXISTS=$(gcloud apigee apis describe "$API_NAME" --project=primal-gate-456620-t1 --format="value(name)" || echo "not-found")
-          echo "API_EXISTS=$API_EXISTS"
-          echo "exists=$API_EXISTS" >> $GITHUB_OUTPUT
+          ORG="primal-gate-456620-t1"
+          TOKEN="${{ steps.auth.outputs.access_token }}"
+          
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            https://apigee.googleapis.com/v1/organizations/$ORG/apis/$API_NAME)
 
-      - name: Import Apigee API Proxy if not exists
+          if [[ "$STATUS" == "404" ]]; then
+            echo "API does not exist"
+            echo "exists=not-found" >> $GITHUB_OUTPUT
+          else
+            echo "API exists"
+            echo "exists=found" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create API proxy if not found
         if: steps.check_api.outputs.exists == 'not-found'
         run: |
           API_NAME="${{ steps.get_api_name.outputs.api_name }}"
-          gcloud apigee apis import \
-            --api="$API_NAME" \
-            --source=./apiproxy \
-            --project=primal-gate-456620-t1
+          ORG="primal-gate-456620-t1"
+          TOKEN="${{ steps.auth.outputs.access_token }}"
+          
+          curl -s -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"name":"'"$API_NAME"'"}' \
+            "https://apigee.googleapis.com/v1/organizations/$ORG/apis?name=$API_NAME"
+
+      - name: Import proxy revision
+        id: import_proxy
+        run: |
+          API_NAME="${{ steps.get_api_name.outputs.api_name }}"
+          ORG="primal-gate-456620-t1"
+          TOKEN="${{ steps.auth.outputs.access_token }}"
+          
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: multipart/form-data" \
+            -F "file=@proxy.zip" \
+            "https://apigee.googleapis.com/v1/organizations/$ORG/apis/$API_NAME/revisions?validate=true")
+          
+          REVISION=$(echo "$RESPONSE" | grep -oP '"revision"\s*:\s*"\K[0-9]+')
+          echo "REVISION=$REVISION"
+          echo "revision=$REVISION" >> $GITHUB_OUTPUT
 
       - name: Deploy to eval environment
         run: |
           API_NAME="${{ steps.get_api_name.outputs.api_name }}"
-          echo "Deploying $API_NAME to eval environment..."
-
-          gcloud apigee apis deploy \
-            --api="$API_NAME" \
-            --environment=eval \
-            --source=./apiproxy \
-            --project=primal-gate-456620-t1
-
-
-
-
+          REVISION="${{ steps.import_proxy.outputs.revision }}"
+          ORG="primal-gate-456620-t1"
+          TOKEN="${{ steps.auth.outputs.access_token }}"
+          
+          curl -s -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://apigee.googleapis.com/v1/organizations/$ORG/environments/eval/apis/$API_NAME/revisions/$REVISION/deployments"
