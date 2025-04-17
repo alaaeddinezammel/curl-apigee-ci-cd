@@ -31,7 +31,7 @@ jobs:
         id: get_api_name
         run: |
           # Extraction du nom de l'API depuis le fichier XML
-          API_NAME=$(grep -oP '(?<=<name>)(.*)(?=</name>)' ./curl-apigee-ci-cd/apiproxy/hello-world.xml)
+          API_NAME=$(grep -oP '(?<=<name>)(.*)(?=</name>)' ./apiproxy/hello-world.xml)
           echo "API_NAME=$API_NAME" >> $GITHUB_ENV
 
       - name: Check if API exists
