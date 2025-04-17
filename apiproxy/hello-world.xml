@@ -15,8 +15,8 @@
 -->
 
 <APIProxy revision="1" name="hello-world">
-    <DisplayName></DisplayName>
-    <Description></Description>
+    <DisplayName>hello-world</DisplayName>
+    <Description>hello-world</Description>
     <CreatedAt>1642755207215</CreatedAt>
     <LastModifiedAt>1642755207215</LastModifiedAt>
     <BasePaths>/hello-world</BasePaths>
