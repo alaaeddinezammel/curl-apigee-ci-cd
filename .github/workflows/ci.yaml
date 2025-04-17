@@ -38,7 +38,7 @@ jobs:
 
       - name: Zip Apigee proxy bundle
         run: |
-          cd ./apiproxy
+          cd apiproxy
           zip -r ../proxy.zip .
           cd ..
 
@@ -51,7 +51,7 @@ jobs:
           
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "Authorization: Bearer $TOKEN" \
-            https://apigee.googleapis.com/v1/organizations/$ORG/apis/$API_NAME)
+            "https://apigee.googleapis.com/v1/organizations/$ORG/apis/$API_NAME")
 
           if [[ "$STATUS" == "404" ]]; then
             echo "API does not exist"
@@ -68,6 +68,7 @@ jobs:
           ORG="primal-gate-456620-t1"
           TOKEN="${{ steps.auth.outputs.access_token }}"
           
+          echo "Creating new API proxy..."
           curl -s -X POST \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
@@ -75,15 +76,12 @@ jobs:
             "https://apigee.googleapis.com/v1/organizations/$ORG/apis?name=$API_NAME"
 
       - name: Import proxy to Apigee
+        id: import_proxy
         run: |
+          set -e
           API_NAME="${{ steps.get_api_name.outputs.api_name }}"
           ORG="primal-gate-456620-t1"
-          TOKEN="$(gcloud auth print-access-token)"
-          
-          echo "Zipping apiproxy folder..."
-          cd apiproxy
-          zip -r ../proxy.zip .
-          cd ..
+          TOKEN="${{ steps.auth.outputs.access_token }}"
           
           echo "Sending import request..."
           RESPONSE=$(curl -s -X POST \
@@ -91,13 +89,13 @@ jobs:
             -H "Content-Type: multipart/form-data" \
             -F "file=@proxy.zip" \
             "https://apigee.googleapis.com/v1/organizations/$ORG/apis?action=import&name=$API_NAME")
-          
+
           echo "API Response: $RESPONSE"
+
           echo "$RESPONSE" | grep -q '"error"' && exit 1
-          
           REVISION=$(echo "$RESPONSE" | grep -oP '"revision"\s*:\s*"\K[0-9]+')
-          echo "REVISION=$REVISION"
           echo "revision=$REVISION" >> $GITHUB_OUTPUT
+          echo "Imported revision: $REVISION"
 
       - name: Deploy to eval environment
         run: |
@@ -105,7 +103,8 @@ jobs:
           REVISION="${{ steps.import_proxy.outputs.revision }}"
           ORG="primal-gate-456620-t1"
           TOKEN="${{ steps.auth.outputs.access_token }}"
-          
+
+          echo "Deploying revision $REVISION to 'eval' environment..."
           curl -s -X POST \
             -H "Authorization: Bearer $TOKEN" \
             "https://apigee.googleapis.com/v1/organizations/$ORG/environments/eval/apis/$API_NAME/revisions/$REVISION/deployments"
