@@ -90,11 +90,9 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: multipart/form-data" \
             -F "file=@proxy.zip" \
-            "https://apigee.googleapis.com/v1/organizations/$ORG/apis/$API_NAME/revisions?validate=true")
+            "https://apigee.googleapis.com/v1/organizations/$ORG/apis?action=import&name=$API_NAME")
           
           echo "API Response: $RESPONSE"
-          
-          # Optional: exit if response contains an error
           echo "$RESPONSE" | grep -q '"error"' && exit 1
           
           REVISION=$(echo "$RESPONSE" | grep -oP '"revision"\s*:\s*"\K[0-9]+')
