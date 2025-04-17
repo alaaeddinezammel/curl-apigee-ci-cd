@@ -30,44 +30,33 @@ jobs:
       - name: Get API name from XML
         id: get_api_name
         run: |
-          # Extraction du nom de l'API depuis le fichier XML
           API_NAME=$(grep -oP '(?<=<name>)(.*)(?=</name>)' ./apiproxy/hello-world.xml)
-          echo "API_NAME=$API_NAME" >> $GITHUB_ENV
-
-      - name: Check extracted API name
-        run: |
-          echo "API Name Extracted: $API_NAME"
+          echo "API_NAME=$API_NAME"
+          echo "api_name=$API_NAME" >> $GITHUB_OUTPUT
 
       - name: Check if API exists
         id: check_api
         run: |
-          if [ -z "$API_NAME" ]; then
-            echo "Error: API name is empty"
-            exit 1
-          fi
-          API_EXISTS=$(gcloud apigee apis describe $API_NAME --project=primal-gate-456620-t1 --format="value(name)" || echo "not-found")
-          echo "API_EXISTS=$API_EXISTS" >> $GITHUB_ENV
+          API_NAME="${{ steps.get_api_name.outputs.api_name }}"
+          API_EXISTS=$(gcloud apigee apis describe "$API_NAME" --project=primal-gate-456620-t1 --format="value(name)" || echo "not-found")
+          echo "API_EXISTS=$API_EXISTS"
+          echo "exists=$API_EXISTS" >> $GITHUB_OUTPUT
 
-      - name: Create Apigee API Proxy if not exists
-        if: env.API_EXISTS == 'not-found'
+      - name: Import Apigee API Proxy if not exists
+        if: steps.check_api.outputs.exists == 'not-found'
         run: |
+          API_NAME="${{ steps.get_api_name.outputs.api_name }}"
           gcloud apigee apis import \
-            --api=$API_NAME \
-            --source=./curl-apigee-ci-cd/apiproxy \
-            --project=primal-gate-456620-t1
-
-      - name: Deploy Apigee Proxy
-        if: env.API_EXISTS != 'not-found'
-        run: |
-          gcloud apigee apis deploy \
-            --api=$API_NAME \
-            --source=./curl-apigee-ci-cd/apiproxy \
+            --api="$API_NAME" \
+            --source=./apiproxy \
             --project=primal-gate-456620-t1
 
       - name: Deploy to eval environment
         run: |
+          API_NAME="${{ steps.get_api_name.outputs.api_name }}"
+          REVISION=$(gcloud apigee apis describe "$API_NAME" --project=primal-gate-456620-t1 --format="value(revision[-1])")
           gcloud apigee deployments create \
-            --api=$API_NAME \
+            --api="$API_NAME" \
             --environment=eval \
-            --revision=1 \
+            --revision="$REVISION" \
             --project=primal-gate-456620-t1
